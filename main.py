@@ -284,7 +284,6 @@ if __name__ == "__main__":
         sorted_individuals = {}
 
 
-
     print("Best Individual - FINAL:", individuals[0].fitness_func)
     print("Path:", individuals[0].path)
 
