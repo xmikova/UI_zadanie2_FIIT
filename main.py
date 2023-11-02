@@ -42,12 +42,14 @@ map_size = (7, 7)
 all_treasures = {(1, 4), (2, 2), (3, 6), (4, 1), (5, 4)}
 start_position = (6, 3)
 individuals = []
+best_individual = None
 
 
 # Funkcia, ktorá vytvorí prvotnú generáciu a nainicializuje ju jedincami tak, aby vedela evolúcia ďalej konvergovať
 def spawn_generation():
     for i in range(number_of_individuals):
         individuals.append(spawn_individual())
+        individuals[i].memory_cells = []
         for j in range(mem_cells_count):
             if j <= first_gen_mem_cells_count:
                 individuals[i].memory_cells.append(numpy.uint8(random.randrange(256)))
@@ -262,7 +264,6 @@ if selection_choice != "ruleta" or selection_choice != "turnaj":
 #Spustenie programu a nájdenie najlepšieho hľadača pokladov
 if __name__ == "__main__":
     continue_generating = True
-    best_individual = None
     counter = 1
     sorted_individuals = {}
 
@@ -283,7 +284,7 @@ if __name__ == "__main__":
             individuals = new_generation
 
             if best_individual is None or (
-                    len(sorted_individuals) != 0 and sorted_individuals[0].fitness_func > best_individual.fitness_func):
+                    len(sorted_individuals) != 0 and (sorted_individuals[0].fitness_func > best_individual.fitness_func)):
                 best_individual = sorted_individuals[0]
 
             sorted_individuals = {}
@@ -298,7 +299,7 @@ if __name__ == "__main__":
         user_input = input("Chcete pokračovať v generovaní? (ano/nie): ")
         if user_input.lower() != "ano":
             continue_generating = False
-            print("Najlepší jedinec celkovo: ")
             print()
+            print("Najlepší jedinec celkovo: ")
             print("Fitnes funkcia: ", best_individual.fitness_func)
             print("Cesta:", best_individual.path)
