@@ -1,19 +1,34 @@
 import random
 import numpy
 
-mem_cells_count = 64
-first_gen_mem_cells_count = 32
-max_steps = 500
-elitism = 0.02  # percent of new individuals made by elitism
-new_individuals = 0.15  # percent of new individuals made for new generation
-mutation_rate = 0.05  # probability of mutation
-tournament = 0.2  # number of individuals in tournament
 
-number_of_gens = 200
-number_of_individuals = 80
+def get_user_input(prompt, default_value):
+    user_input = input(f"{prompt} (default hodnota: {default_value}): ")
+    if user_input == "":
+        return default_value
+    return type(default_value)(user_input)
 
-#TODO : implementovat parser pre txt vstupy
 
+print()
+print("*----------------------------------------------------------------------------*")
+print("|                 Hľadanie pokladu - evolučný algoritmus                     |")
+print("|                           Autor: Petra Miková                              |")
+print("|                             UI, ZS 2023/2024                               |")
+print("*----------------------------------------------------------------------------*")
+print()
+print("Nasleduje input hodnôt pre algoritmus, ak chcete ponechať defaultnu hodnotu, stlačte enter:")
+# Defaultne hodnoty, s ktorými sa program spúšťa ak ich používateľ nechce zadať sám
+mem_cells_count = get_user_input("Zadajte počet pamäťových buniek pre virtuálny stroj", 64)
+first_gen_mem_cells_count = get_user_input("Zadajte počet pamäťových buniek ktoré sa inicializujú v prvej generácii", 32)
+max_steps = get_user_input("Zadajte počet krokov, po koľkých sa zastaví hľadanie", 500)
+elitism = get_user_input("Zadajte percento nových jedincov vytvorených elitarizmom", 0.02)
+new_individuals = get_user_input("Zadajte percento nových jedincov vytvorených v novej generácii", 0.15)
+mutation_rate = get_user_input("Zadajte pravdepodobnosť mutácie", 0.05)
+tournament = get_user_input("Zadajte percento jedincov v turnaji", 0.2)
+number_of_gens = get_user_input("Zadajte počet generácií", 200)
+number_of_individuals = get_user_input("Zadajte počet jedincov v jednej generácii", 80)
+
+# Trieda, ktorá obsahuje štruktúru jedinca - jeho prejdenú cestu, pamäťové bunky, nájdené poklady, a fitness funkciu
 class Individual:
     def __init__(self, path, memory_cells, treasures_found, fitness_func):
         self.path = path
@@ -21,28 +36,15 @@ class Individual:
         self.treasures_found = treasures_found
         self.fitness_func = fitness_func
 
-    def set_path(self, path):
-        self.path = path
 
-    def set_memory_cells(self, memory_cells):
-        self.memory_cells = memory_cells
-
-    def set_treasures_found(self, treasures_found):
-        self.treasures_found = treasures_found
-
-    def set_fitness_func(self, fitness_func):
-        self.fitness_func = fitness_func
-
-
-map_size = (7,7)
-all_treasures = {(1,4), (2,2), (3,6), (4,1), (5,4)}
-start_position = (6,3)
-best_individual = Individual([], [], set(), 0)
-averages = []
-bests = []
+# Premenné týkajuce sa mriežky, pozícii pokladov a finálnych výsledkov algoritmu
+map_size = (7, 7)
+all_treasures = {(1, 4), (2, 2), (3, 6), (4, 1), (5, 4)}
+start_position = (6, 3)
 individuals = []
 
 
+# Funkcia, ktorá vytvorí prvotnú generáciu a nainicializuje ju jedincami tak, aby vedela evolúcia ďalej konvergovať
 def spawn_generation():
     for i in range(number_of_individuals):
         individuals.append(spawn_individual())
@@ -53,17 +55,19 @@ def spawn_generation():
                 individuals[i].memory_cells.append(numpy.uint8(0))
 
 
+# Funkcia, ktorá vytvorí nového jedinca do danej generácie
 def spawn_individual():
-    path = []  # Initialize path as an empty list
-    memory_cells = [numpy.uint8(random.randint(0, 255)) for _ in range(mem_cells_count)]  # Create memory_cells
-    treasures_found = set()  # Initialize treasures_found as an empty set
-    fitness_func = 0  # Initialize fitness_func to 0
+    path = []
+    memory_cells = [numpy.uint8(random.randint(0, 255)) for _ in range(mem_cells_count)]
+    treasures_found = set()
+    fitness_func = 0
 
-    # Create the new individual using the Individual class
     new_individual = Individual(path, memory_cells, treasures_found, fitness_func)
 
     return new_individual
 
+
+# Jednoduchá funkcia, ktorá vráti znakovú podobu pohybu pre výpis cesty jedinca
 def return_move(bits):
     if bits == "00":
         return "H"
@@ -76,36 +80,40 @@ def return_move(bits):
     return None
 
 
+# Funkcia, ktorá simuluje virtuálny stroj pre každého jedinca, za inštrukcie berieme pamäťové bunky jedinca
+# ktoré si rozsparsujeme na 8 bitové binárne stringy a podľa definície virtuálneho stroja vykonávame dané operácie, vykonávajú
+# sa až po maximálny počet krokov
 def virtual_machine(individual):
-    program_counter = 0
-    index = 0
+    steps_count = 0
+    cells_count = 0
     instructions = individual.memory_cells
 
-    while program_counter <= max_steps and 0 <= index < mem_cells_count:
-        operation = format(instructions[index], '08b')[0:2]
-        address = int(format(instructions[index], '08b')[2:], 2)
+    while steps_count <= max_steps and 0 <= cells_count < mem_cells_count:
+        operation = format(instructions[cells_count], '08b')[0:2]
+        address = int(format(instructions[cells_count], '08b')[2:], 2)
 
-        if operation == "00":  # Increment
+        if operation == "00":  # Inkrementácia
             individual.memory_cells[address] += 1
             individual.memory_cells[address] = numpy.uint8(individual.memory_cells[address])
 
-        elif operation == "01":  # Decrement
+        elif operation == "01":  # Dekrementácia
             individual.memory_cells[address] -= 1
             individual.memory_cells[address] = numpy.uint8(individual.memory_cells[address])
 
-        elif operation == "10":  # Jump
-            index = address
+        elif operation == "10":  # Skok
+            cells_count = address
 
-        elif operation == "11":  # Write uses last 2 bits
-            move = format(instructions[index], '08b')[6:]
+        elif operation == "11":  # Zápis cesty
+            move = format(instructions[cells_count], '08b')[6:]
             individual.path.append(return_move(move))
 
-        program_counter += 1
-        index += 1
+        steps_count += 1
+        cells_count += 1
 
-def found_treasures(individual):
+
+# Samotné prechádzanie mriežkou a hľadanie pokladov, ukončujeme ak jedinec našiel všetky poklady alebo sa posunul mimo mriežky
+def treasure_hunt(individual):
     row, column = start_position
-    counter = 0
     updated_path = []
 
     for move in individual.path:
@@ -119,100 +127,86 @@ def found_treasures(individual):
             column -= 1
 
         if row < 0 or row >= map_size[0] or column < 0 or column >= map_size[1]:
-            # Check if the individual has moved outside the map
-            break  # Exit the loop
+            break
 
-        curr_pos = (row, column)
-        if curr_pos in all_treasures and curr_pos not in individual.treasures_found:
-            # Check for treasure and add it to the individual's treasures
-            individual.treasures_found.add(curr_pos)
+        current_position = (row, column)
+        if current_position in all_treasures and current_position not in individual.treasures_found:
+            individual.treasures_found.add(current_position)
 
         updated_path.append(move)
 
-    individual.path = updated_path  # Update the path
+    individual.path = updated_path
 
     if len(individual.treasures_found) == len(all_treasures):
-        # All treasures found, searching ends
         return
 
 
+# Výpočet fitnes funkcie jedinca, berieme do úvahy najmä počet nájdených pokladov a taktiež penalizujeme dĺžku cesty,
+# čím vyššia fitness funkcia tým je jedinec lepší
 def calculate_fitness(individual):
     if not individual.path:
-        return 0  # Return 0 fitness for individuals with no path
+        return 0
 
     treasures_found = len(individual.treasures_found)
     total_steps = len(individual.path)
 
-    # You can adjust these weights to prioritize different aspects of fitness
     treasures_weight = 10
-    steps_weight = -0.001  # Penalize more steps
+    steps_weight = -0.001
 
-    # Calculate fitness score (a higher score is better)
     fitness = (treasures_weight * treasures_found) + (steps_weight * total_steps)
-
-    print(fitness)
-    if fitness == 49.999:
-        print(individual.path)
-        print(individual.treasures_found)
 
     return fitness
 
 
+# Vykonanie kríženia spôsobom že sa náhodne vyberie index kde bude dochádzať ku kríženiu a po tento index
+# sa novému jedincovi pridajú bunky prvého rodiča, po indexe toho druhého
 def crossover(parent1, parent2):
-    # Perform single-point crossover
     crossover_point = random.randint(1, mem_cells_count - 1)
-
     child_memory_cells = parent1.memory_cells[:crossover_point] + parent2.memory_cells[crossover_point:]
-
     return child_memory_cells
 
 
+# Selekcia - typ ruleta - vyberajú sa za rodičov jedinci spôosobom, že čím vyššiu majú fitness funkciu,
+# tým majú vyššiu šancu vybratia do kríženia
 def roulette_selection(sorted_gen, new_generation):
     start_index = int((elitism + new_individuals) * number_of_individuals)
     weights = [ind.fitness_func for ind in sorted_gen]
 
     for i in range(start_index, number_of_individuals):
-        mom = random.choices(sorted_gen, weights=weights)[0]
-        dad = random.choices(sorted_gen, weights=weights)[0]
+        parent1 = random.choices(sorted_gen, weights=weights)[0]
+        parent2 = random.choices(sorted_gen, weights=weights)[0]
 
-        # Ensure that mom and dad are different individuals
-        while mom == dad:
-            dad = random.choices(sorted_gen, weights=weights)[0]
+        # Ensure that parent1 and parent2 are different individuals
+        while parent1 == parent2:
+            parent2 = random.choices(sorted_gen, weights=weights)[0]
 
         # Create a new offspring Individual object and perform crossover on memory_cells
-        offspring_memory_cells = crossover(mom, dad)
+        offspring_memory_cells = crossover(parent1, parent2)
         offspring = Individual([], offspring_memory_cells, set(), 0)
         new_generation[i] = offspring
 
 
+# Selekcia - typ turnaj - náhodne sa vyberie pevný počet jedincov z populácie na základe percenta turnaja a najvhodnejší jedinec z turnaja
+# je vybraný ako rodič pre nasledujúcu generáciu - toto sa opakuje pre výber viacerých rodičov na generovanie ďalšej generácie jedincov
 def tournament_selection(sorted_gen, new_generation):
     start_index = int((elitism + new_individuals) * number_of_individuals)
     num_tournament = int(tournament * number_of_individuals)
     for i in range(start_index, number_of_individuals):
-        mom = sorted(random.choices(sorted_gen, k=num_tournament), reverse=True, key=lambda x: x.fitness_func)[0]
-        dad = sorted(random.choices(sorted_gen, k=num_tournament), reverse=True, key=lambda x: x.fitness_func)[0]
+        parent1 = sorted(random.choices(sorted_gen, k=num_tournament), reverse=True, key=lambda x: x.fitness_func)[0]
+        parent2 = sorted(random.choices(sorted_gen, k=num_tournament), reverse=True, key=lambda x: x.fitness_func)[0]
 
-        while numpy.array_equal(dad.memory_cells, mom.memory_cells):
-            dad = sorted(random.choices(sorted_gen, k=num_tournament), reverse=True, key=lambda x: x.fitness_func)[0]
+        while numpy.array_equal(parent2.memory_cells, parent1.memory_cells):
+            parent2 = sorted(random.choices(sorted_gen, k=num_tournament), reverse=True, key=lambda x: x.fitness_func)[0]
 
-        # Create a new offspring Individual object and perform crossover on memory_cells
-        offspring_memory_cells = crossover(mom, dad)
+        offspring_memory_cells = crossover(parent1, parent2)
         offspring = Individual([], offspring_memory_cells, set(), 0)
         new_generation[i] = offspring
 
 
-def single_point_crossover(parent1, parent2):
-    # Perform single-point crossover
-    crossover_point = random.randint(1, len(parent1.memory_cells) - 1)
-    offspring = Individual([], [], set(), 0)
-
-    offspring.memory_cells = parent1.memory_cells[:crossover_point] + parent2.memory_cells[crossover_point:]
-
-    return offspring
-
-
-def mutate_invert(individual):
-    mutated_memory_cells = list(individual.memory_cells)  # Create a new list to hold the mutated memory cells
+# Invertovanie pre vykonávanie mutácie, pre každú bunku pamäte v jedincovi sa náhodne rozhodne, či sa vykoná mutácia,
+# a ak áno, vyberie sa náhodné miesto (bit) v danej bunke pamäte a zmení sa jeho hodnota
+def invert_cells(individual):
+    mutated_memory_cells = list(individual.memory_cells)
 
     for index, value in enumerate(individual.memory_cells):
         if random.random() < mutation_rate:
@@ -223,68 +217,75 @@ def mutate_invert(individual):
     return mutated_individual
 
 
+#Vykoná mutáciu pre celú generáciu jedincov
 def mutation(new_generation):
     start_index = int((elitism + new_individuals) * number_of_individuals)
     for i in range(start_index, number_of_individuals):
-        if i in new_generation:  # Check if the index exists in the dictionary
-            individual = new_generation[i]  # Get the individual by index
-            new_generation[i] = mutate_invert(individual)  # Mutate and update the individual in the dictionary
+        if i in new_generation:
+            individual = new_generation[i]
+            new_generation[i] = invert_cells(individual)
 
 
-def create_generation(sorted_gen):
+# Základná funckia pre vytvorenie každej ďalšej generácie, použije sa elitarizmus pre zachovanie elitných jedincov, vykoná sa na základe výberu
+# druh selekcie, zmutuje sa generácia a vráti túto novú generáciu
+def create_generation(sorted_gen, selection):
     new_gen = {}
 
-    elite_end = int(elitism * number_of_individuals)  # elitism
+    elite_end = int(elitism * number_of_individuals)
 
     if elite_end != 0:
         for j in range(elite_end):
-            new_gen[j] = sorted_gen[j]  # Keep elite individuals
+            new_gen[j] = sorted_gen[j]
 
-    start_fresh = int(elitism * number_of_individuals)  # fresh individuals
+    start_fresh = int(elitism * number_of_individuals)
     end_fresh = int((elitism + new_individuals) * number_of_individuals)
     for k in range(start_fresh, end_fresh):
-        new_gen[k] = spawn_individual()  # Create new individuals
+        new_gen[k] = spawn_individual()
 
-    roulette_selection(sorted_gen, new_gen)
+    if selection == "ruleta":
+        roulette_selection(sorted_gen, new_gen)
+    else:
+        tournament_selection(sorted_gen, new_gen)
 
-    mutation(new_gen)  # Apply the "invert" mutation
-
-    # Convert the dictionary into a list of Individual objects
+    mutation(new_gen)
     new_gen = list(new_gen.values())
 
     return new_gen
 
 
+selection_choice = input("Zadajte metódu selekcie (ruleta(default) / turnaj) (pre ponechanie default stlačte enter): ")
+if selection_choice != "ruleta" or selection_choice != "turnaj":
+    print("Používa sa defaultna metóda - ruleta")
+    selection_choice = "ruleta"
 
+
+#Spustenie programu a nájdenie najlepšieho hľadača pokladov
 if __name__ == "__main__":
-    # Initialize the population
     spawn_generation()
     best_individual = None
+    counter = 1
     sorted_individuals = {}
 
     for generation in range(number_of_gens):
-        # Calculate fitness for each individual in the population
         for i in range(number_of_individuals-1):
             virtual_machine(individuals[i])
-            found_treasures(individuals[i])
+            treasure_hunt(individuals[i])
             individuals[i].fitness_func = float(calculate_fitness(individuals[i]))
 
-        # Sort the population based on fitness in descending order
         sorted_individuals = sorted([ind for ind in individuals if isinstance(ind, Individual)],
                                     key=lambda ind: ind.fitness_func, reverse=True)
 
-        # Keep track of the best individual
+        new_generation = create_generation(sorted_individuals, selection_choice)
 
-
-        # Create a new generation
-        new_generation = create_generation(sorted_individuals)
-
-        # Update the population with the new generation
-        individuals = new_generation  # Just replace the list with the new one
+        individuals = new_generation
         sorted_individuals = {}
 
+        print("Najlepší jedinec pre", counter, ". generáciu:")
+        print("Fitnes funkcia: ", individuals[0].fitness_func)
+        print("Cesta:", individuals[0].path)
 
-    print("Best Individual - FINAL:", individuals[0].fitness_func)
-    print("Path:", individuals[0].path)
+        counter += 1
 
-    # Print the best individual's path and fitness
+    print("Najlepší jedinec celkovo: ")
+    print("Fitnes funkcia: ", individuals[0].fitness_func)
+    print("Cesta:", individuals[0].path)
