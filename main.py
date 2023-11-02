@@ -261,31 +261,44 @@ if selection_choice != "ruleta" or selection_choice != "turnaj":
 
 #Spustenie programu a nájdenie najlepšieho hľadača pokladov
 if __name__ == "__main__":
-    spawn_generation()
+    continue_generating = True
     best_individual = None
     counter = 1
     sorted_individuals = {}
 
-    for generation in range(number_of_gens):
-        for i in range(number_of_individuals-1):
-            virtual_machine(individuals[i])
-            treasure_hunt(individuals[i])
-            individuals[i].fitness_func = float(calculate_fitness(individuals[i]))
+    while continue_generating:
+        spawn_generation()
 
-        sorted_individuals = sorted([ind for ind in individuals if isinstance(ind, Individual)],
-                                    key=lambda ind: ind.fitness_func, reverse=True)
+        for generation in range(number_of_gens):
+            for i in range(number_of_individuals-1):
+                virtual_machine(individuals[i])
+                treasure_hunt(individuals[i])
+                individuals[i].fitness_func = float(calculate_fitness(individuals[i]))
 
-        new_generation = create_generation(sorted_individuals, selection_choice)
+            sorted_individuals = sorted([ind for ind in individuals if isinstance(ind, Individual)],
+                                        key=lambda ind: ind.fitness_func, reverse=True)
 
-        individuals = new_generation
-        sorted_individuals = {}
+            new_generation = create_generation(sorted_individuals, selection_choice)
 
-        print("Najlepší jedinec pre", counter, ". generáciu:")
-        print("Fitnes funkcia: ", individuals[0].fitness_func)
-        print("Cesta:", individuals[0].path)
+            individuals = new_generation
 
-        counter += 1
+            if best_individual is None or (
+                    len(sorted_individuals) != 0 and sorted_individuals[0].fitness_func > best_individual.fitness_func):
+                best_individual = sorted_individuals[0]
 
-    print("Najlepší jedinec celkovo: ")
-    print("Fitnes funkcia: ", individuals[0].fitness_func)
-    print("Cesta:", individuals[0].path)
+            sorted_individuals = {}
+
+            print("Najlepší jedinec pre", counter, ". generáciu:")
+            print("Fitnes funkcia: ", individuals[0].fitness_func)
+            print("Cesta:", individuals[0].path)
+
+            counter += 1
+
+        # Pýtame sa používateľa či chce pokračovať alebo nie
+        user_input = input("Chcete pokračovať v generovaní? (ano/nie): ")
+        if user_input.lower() != "ano":
+            continue_generating = False
+            print("Najlepší jedinec celkovo: ")
+            print()
+            print("Fitnes funkcia: ", best_individual.fitness_func)
+            print("Cesta:", best_individual.path)
